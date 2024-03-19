@@ -49,25 +49,25 @@
 
 #ifdef KEYBOARD_COLEMAK
 const uint8_t colemak[128] = {
-  0  ,  0,  0,  0,  0,  0,  0, 22,
-  9  , 23,  7,  0, 24, 17,  8, 12,
-  0  , 14, 28, 51,  0, 19, 21, 10,
-  15 ,  0,  0,  0, 13,  0,  0,  0,
-  0  ,  0,  0,  0,  0,  0,  0,  0,
-  0  ,  0,  0,  0,  0,  0,  0,  0,
-  0  ,  0,  0, 18,  0,  0,  0,  0,
-  0  ,  0,  0,  0,  0,  0,  0,  0,
-  0  ,  0,  0,  0,  0,  0,  0,  0,
-  0  ,  0,  0,  0,  0,  0,  0,  0
-};
+    0, 0, 0, 0, 0, 0, 0, 22,
+    9, 23, 7, 0, 24, 17, 8, 12,
+    0, 14, 28, 51, 0, 19, 21, 10,
+    15, 0, 0, 0, 13, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 18, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0};
 #endif
 
-static uint8_t const keycode2ascii[128][2] =  { HID_KEYCODE_TO_ASCII };
+static uint8_t const keycode2ascii[128][2] = {HID_KEYCODE_TO_ASCII};
 
 /*------------- MAIN -------------*/
 
 // core1: handle host events
-void core1_main() {
+void core1_main()
+{
   sleep_ms(10);
 
   // Use tuh_configure() to pass pio configuration to the host stack
@@ -79,26 +79,42 @@ void core1_main() {
   // port1) on core1
   tuh_init(1);
 
-  while (true) {
+  while (true)
+  {
     tuh_task(); // tinyusb host task
   }
 }
 
 // core0: handle device events
-int main(void) {
+int main(void)
+{
+  stdio_init_all();
   // default 125MHz is not appropreate. Sysclock should be multiple of 12MHz.
   set_sys_clock_khz(120000, true);
-
+  sleep_ms(1000);
+  printf("hi\n");
   sleep_ms(10);
+
+  // END INIT IO
+  // printf("waiting for usb host");
+  // while (!tud_cdc_connected()) {
+  //   printf(".");
+  //   sleep_ms(500);
+  // }
+  // printf("\nusb host detected!\n");
 
   multicore_reset_core1();
   // all USB task run in core1
   multicore_launch_core1(core1_main);
-
+  sleep_ms(10);
+  printf("hi\n");
   // init device stack on native usb (roothub port0)
   tud_init(0);
-
-  while (true) {
+  sleep_ms(1000);
+  while (true)
+  {
+    printf("hi\n");
+    stdio_flush();
     tud_task(); // tinyusb device task
     tud_cdc_write_flush();
   }
@@ -113,13 +129,13 @@ int main(void) {
 // Invoked when CDC interface received data from host
 void tud_cdc_rx_cb(uint8_t itf)
 {
-  (void) itf;
+  (void)itf;
 
   char buf[64];
   uint32_t count = tud_cdc_read(buf, sizeof(buf));
 
   // TODO control LED on keyboard of host stack
-  (void) count;
+  (void)count;
 }
 
 //--------------------------------------------------------------------+
@@ -131,13 +147,13 @@ void tud_cdc_rx_cb(uint8_t itf)
 // can be used to parse common/simple enough descriptor.
 // Note: if report descriptor length > CFG_TUH_ENUMERATION_BUFSIZE, it will be skipped
 // therefore report_desc = NULL, desc_len = 0
-void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_report, uint16_t desc_len)
+void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len)
 {
   (void)desc_report;
   (void)desc_len;
 
   // Interface protocol (hid_interface_protocol_enum_t)
-  const char* protocol_str[] = { "None", "Keyboard", "Mouse" };
+  const char *protocol_str[] = {"None", "Keyboard", "Mouse"};
   uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
   uint16_t vid, pid;
@@ -153,7 +169,7 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
   // tuh_hid_report_received_cb() will be invoked when report is available
   if (itf_protocol == HID_ITF_PROTOCOL_KEYBOARD || itf_protocol == HID_ITF_PROTOCOL_MOUSE)
   {
-    if ( !tuh_hid_receive_report(dev_addr, instance) )
+    if (!tuh_hid_receive_report(dev_addr, instance))
     {
       tud_cdc_write_str("Error: cannot request report\r\n");
     }
@@ -172,46 +188,49 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 // look up new key in previous keys
 static inline bool find_key_in_report(hid_keyboard_report_t const *report, uint8_t keycode)
 {
-  for(uint8_t i=0; i<6; i++)
+  for (uint8_t i = 0; i < 6; i++)
   {
-    if (report->keycode[i] == keycode)  return true;
+    if (report->keycode[i] == keycode)
+      return true;
   }
 
   return false;
 }
 
-
 // convert hid keycode to ascii and print via usb device CDC (ignore non-printable)
 static void process_kbd_report(uint8_t dev_addr, hid_keyboard_report_t const *report)
 {
-  (void) dev_addr;
-  static hid_keyboard_report_t prev_report = { 0, 0, {0} }; // previous report to check key released
+  (void)dev_addr;
+  static hid_keyboard_report_t prev_report = {0, 0, {0}}; // previous report to check key released
   bool flush = false;
 
-  for(uint8_t i=0; i<6; i++)
+  for (uint8_t i = 0; i < 6; i++)
   {
     uint8_t keycode = report->keycode[i];
-    if ( keycode )
+    if (keycode)
     {
-      if ( find_key_in_report(&prev_report, keycode) )
+      if (find_key_in_report(&prev_report, keycode))
       {
         // exist in previous report means the current key is holding
-      }else
+      }
+      else
       {
-        // not existed in previous report means the current key is pressed
+// not existed in previous report means the current key is pressed
 
-        // remap the key code for Colemak layout
-        #ifdef KEYBOARD_COLEMAK
+// remap the key code for Colemak layout
+#ifdef KEYBOARD_COLEMAK
         uint8_t colemak_key_code = colemak[keycode];
-        if (colemak_key_code != 0) keycode = colemak_key_code;
-        #endif
+        if (colemak_key_code != 0)
+          keycode = colemak_key_code;
+#endif
 
         bool const is_shift = report->modifier & (KEYBOARD_MODIFIER_LEFTSHIFT | KEYBOARD_MODIFIER_RIGHTSHIFT);
         uint8_t ch = keycode2ascii[keycode][is_shift ? 1 : 0];
 
         if (ch)
         {
-          if (ch == '\n') tud_cdc_write("\r", 1);
+          if (ch == '\n')
+            tud_cdc_write("\r", 1);
           tud_cdc_write(&ch, 1);
           flush = true;
         }
@@ -220,19 +239,20 @@ static void process_kbd_report(uint8_t dev_addr, hid_keyboard_report_t const *re
     // TODO example skips key released
   }
 
-  if (flush) tud_cdc_write_flush();
+  if (flush)
+    tud_cdc_write_flush();
 
   prev_report = *report;
 }
 
 // send mouse report to usb device CDC
-static void process_mouse_report(uint8_t dev_addr, hid_mouse_report_t const * report)
+static void process_mouse_report(uint8_t dev_addr, hid_mouse_report_t const *report)
 {
   //------------- button state  -------------//
-  //uint8_t button_changed_mask = report->buttons ^ prev_report.buttons;
-  char l = report->buttons & MOUSE_BUTTON_LEFT   ? 'L' : '-';
+  // uint8_t button_changed_mask = report->buttons ^ prev_report.buttons;
+  char l = report->buttons & MOUSE_BUTTON_LEFT ? 'L' : '-';
   char m = report->buttons & MOUSE_BUTTON_MIDDLE ? 'M' : '-';
-  char r = report->buttons & MOUSE_BUTTON_RIGHT  ? 'R' : '-';
+  char r = report->buttons & MOUSE_BUTTON_RIGHT ? 'R' : '-';
 
   char tempbuf[32];
   int count = sprintf(tempbuf, "[%u] %c%c%c %d %d %d\r\n", dev_addr, l, m, r, report->x, report->y, report->wheel);
@@ -242,26 +262,27 @@ static void process_mouse_report(uint8_t dev_addr, hid_mouse_report_t const * re
 }
 
 // Invoked when received report from device via interrupt endpoint
-void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len)
+void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len)
 {
-  (void) len;
+  (void)len;
   uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-  switch(itf_protocol)
+  switch (itf_protocol)
   {
-    case HID_ITF_PROTOCOL_KEYBOARD:
-      process_kbd_report(dev_addr, (hid_keyboard_report_t const*) report );
+  case HID_ITF_PROTOCOL_KEYBOARD:
+    process_kbd_report(dev_addr, (hid_keyboard_report_t const *)report);
     break;
 
-    case HID_ITF_PROTOCOL_MOUSE:
-      process_mouse_report(dev_addr, (hid_mouse_report_t const*) report );
+  case HID_ITF_PROTOCOL_MOUSE:
+    process_mouse_report(dev_addr, (hid_mouse_report_t const *)report);
     break;
 
-    default: break;
+  default:
+    break;
   }
 
   // continue to request to receive report
-  if ( !tuh_hid_receive_report(dev_addr, instance) )
+  if (!tuh_hid_receive_report(dev_addr, instance))
   {
     tud_cdc_write_str("Error: cannot request report\r\n");
   }

@@ -6,6 +6,10 @@ set(dir ${CMAKE_CURRENT_LIST_DIR}/src)
 pico_generate_pio_header(${lib_name} ${dir}/usb_tx.pio)
 pico_generate_pio_header(${lib_name} ${dir}/usb_rx.pio)
 
+# enable usb output, disable uart output
+pico_enable_stdio_usb(${lib_name} 1)
+pico_enable_stdio_uart(${lib_name} 0)
+
 target_sources(${lib_name} INTERFACE
     ${dir}/pio_usb.c
     ${dir}/pio_usb_device.c

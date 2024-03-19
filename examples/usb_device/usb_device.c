@@ -137,11 +137,16 @@ int main() {
 
   // move mouse pointer every 0.5s
   while (true) {
+    printf("hello!");
     if (usb_device != NULL) {
+      printf("USB DEVICE DETECTED");
       hid_mouse_report_t mouse_report = {0};
       mouse_report.x = 1;
       endpoint_t *ep = pio_usb_get_endpoint(usb_device, 2);
       pio_usb_set_out_data(ep, (uint8_t *)&mouse_report, sizeof(mouse_report));
+    }
+    else{
+      printf("usb_device is NULL");
     }
     sleep_ms(500);
   }
