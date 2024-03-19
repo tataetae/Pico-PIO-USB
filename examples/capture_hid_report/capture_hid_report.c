@@ -44,7 +44,7 @@ int main()
   multicore_reset_core1();
   // all USB task run in core1
   multicore_launch_core1(core1_main);
-
+  bool zero = false;
   while (true)
   {
     // printf("hi\n");
@@ -78,15 +78,24 @@ int main()
 
           if (len > 0)
           {
-            printf("%04x:%04x EP 0x%02x:\t", device->vid, device->pid,
-                   ep->ep_num);
+            // printf("%04x:%04x EP 0x%02x:\t", device->vid, device->pid,
+            //        ep->ep_num);
             // for (int i = 0; i < len; i++) {
-            if (ep_idx % 2 == 0)
+            if (zero == false)
             {
-              printf(" VALUE=_%2x_ :i= %d", temp[2], 2);
+              if (keycode2ascii[temp[2]][0] == 13)
+              { // carriage return
+                printf("\nDONE\n");
+                zero = false;
+              }
+              // printf(" VALUE=_%c_ :ASCII CODE %d", keycode2ascii[temp[2]][0], keycode2ascii[temp[2]][0]);
+              printf("%c", keycode2ascii[temp[2]][0]);
             }
+            else
+            {
+            }
+            zero = !zero;
             // }
-            printf("\n");
           }
         }
       }
